@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RAG — the ground floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9EDEE;
+    --card:#F4F7F7;
+    --ink:#16243C;
+    --ink-soft:#4A5A72;
+    --rule:#BCC7CC;
+    --mark:#FFD84D;
+    --mark-wash:#FCEFC0;
+    --gen:#0E6B66;
+    --warn:#8C3A2B;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --sans:'Archivo',ui-sans-serif,system-ui,sans-serif;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101821;
+      --card:#17212C;
+      --ink:#E4EAEE;
+      --ink-soft:#9DAEBC;
+      --rule:#33434F;
+      --mark:#F2C73E;
+      --mark-wash:#4A3B10;
+      --gen:#4FBDB2;
+      --warn:#E08E7C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+    --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--serif);font-size:1.0625rem;line-height:1.66;
+  }
+  .wrap{max-width:46rem;margin:0 auto;padding:3.5rem 1.35rem 5rem}
+  h1,h2,h3,.stage-n,.tag,th{font-family:var(--sans)}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.6rem;margin-bottom:2.6rem}
+  h1{font-size:clamp(2rem,7vw,3rem);line-height:1.04;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+  .src{font-size:.9rem;color:var(--ink-soft);font-style:italic;margin:0}
+
+  .lede{font-size:clamp(1.15rem,3.6vw,1.45rem);line-height:1.5;margin:0 0 2rem}
+  mark{background:var(--mark-wash);color:inherit;padding:.06em .18em;box-shadow:0 1px 0 var(--mark)}
+
+  h2{font-size:1.28rem;font-weight:700;letter-spacing:-.01em;margin:3.2rem 0 .9rem;padding-top:1rem;border-top:1px solid var(--rule)}
+  h3{font-size:1.02rem;font-weight:600;margin:1.8rem 0 .4rem}
+  p{margin:0 0 1rem}
+  ul{margin:0 0 1rem;padding-left:1.15rem}
+  li{margin-bottom:.45rem}
+
+  figure{margin:1.8rem 0;padding:1.1rem;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow-x:auto}
+  figure svg{display:block;width:100%;height:auto;min-width:440px;max-width:100%}
+  figcaption{font-family:var(--sans);font-size:.8rem;color:var(--ink-soft);margin-top:.85rem;line-height:1.45}
+
+  .tbl{overflow-x:auto;margin:1.4rem 0}
+  table{border-collapse:collapse;width:100%;min-width:34rem;font-size:.95rem}
+  th,td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-size:.82rem;font-weight:600;color:var(--ink-soft);border-bottom:1.5px solid var(--ink)}
+  td:first-child{font-family:var(--sans);font-weight:500;white-space:nowrap}
+
+  .stage{display:flex;gap:1rem;margin:1.4rem 0;align-items:baseline}
+  .stage-n{flex:0 0 auto;font-size:1.5rem;font-weight:700;color:var(--mark);line-height:1;width:1.6rem}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .stage-n{color:var(--mark)}}
+  .stage-b h3{margin-top:0}
+
+  pre{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.82rem;line-height:1.55;
+      background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--mark);
+      border-radius:3px;padding:.95rem 1rem;overflow-x:auto;margin:1.2rem 0;white-space:pre}
+  code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.88em;
+       background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:.06em .3em}
+  pre code{background:none;border:none;padding:0;font-size:inherit}
+
+  .flag{border-left:3px solid var(--warn);padding:.15rem 0 .15rem 1rem;margin:1.4rem 0;color:var(--ink-soft)}
+  .flag strong{color:var(--warn);font-family:var(--sans);font-size:.9rem;font-weight:600}
+
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:2px solid var(--ink);font-size:.95rem;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RAG — the ground floor</h1>
+  <p class="src">Notes on part one: what it is, why it exists, how it runs, and what you need to build one. Loaders, chunking, embeddings and vector stores are named here but explained later.</p>
+</header>
+
+<p class="lede">A language model answers from what's baked into its weights. RAG answers from <mark>whatever you fetch and hand it at question time</mark> — so the knowledge stops being frozen and starts being swappable.</p>
+
+<figure>
+<svg viewBox="0 0 860 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Question goes to a retriever, which pulls from a knowledge base, the result is stitched into a prompt, sent to the LLM, and returned as a grounded answer.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="126" y1="140" x2="166" y2="140" marker-end="url(#ar)"/>
+    <line x1="310" y1="140" x2="350" y2="140" marker-end="url(#ar)"/>
+    <line x1="494" y1="140" x2="534" y2="140" marker-end="url(#ar)"/>
+    <line x1="648" y1="140" x2="688" y2="140" marker-end="url(#ar)"/>
+    <line x1="238" y1="82" x2="238" y2="114" marker-end="url(#ar)" stroke-dasharray="4 3"/>
+  </g>
+
+  <g font-family="Archivo, sans-serif" font-size="13" text-anchor="middle">
+    <rect x="16" y="118" width="110" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="71" y="145" fill="var(--ink)">Question</text>
+
+    <rect x="178" y="30" width="120" height="50" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="238" y="51" fill="var(--ink)">Knowledge</text>
+    <text x="238" y="68" fill="var(--ink)">base</text>
+
+    <rect x="178" y="118" width="132" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="244" y="145" fill="var(--ink)">Retrieve</text>
+
+    <rect x="362" y="118" width="132" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="428" y="145" fill="var(--ink)">Augment</text>
+
+    <rect x="546" y="118" width="102" height="44" rx="3" fill="var(--card)" stroke="var(--gen)" stroke-width="2"/>
+    <text x="597" y="145" fill="var(--ink)">LLM</text>
+
+    <rect x="700" y="118" width="144" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="772" y="145" fill="var(--ink)">Grounded answer</text>
+  </g>
+
+  <g font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="middle">
+    <text x="244" y="182">find the few</text>
+    <text x="244" y="196">relevant pieces</text>
+    <text x="428" y="182">paste them into</text>
+    <text x="428" y="196">the prompt</text>
+    <text x="597" y="182">read &amp; write</text>
+    <text x="597" y="196">the answer</text>
+  </g>
+</svg>
+<figcaption>The whole idea in one line: retrieve first, then generate. The model is the last step, not the source of truth.</figcaption>
+</figure>
+
+<h2>Why it exists</h2>
+
+<p>A trained model is a snapshot. Its weights were fixed on the day training stopped, and nothing about your world got in. That produces four concrete failures:</p>
+
+<figure>
+<svg viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A frozen LLM with four failure modes branching from it: stale knowledge, no private data, confident hallucination, and no sources.">
+  <g font-family="Archivo, sans-serif" font-size="13" text-anchor="middle">
+    <rect x="270" y="98" width="160" height="56" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>
+    <text x="350" y="122" fill="var(--ink)">LLM on its own</text>
+    <text x="350" y="141" font-size="11" fill="var(--ink-soft)">weights frozen at cutoff</text>
+  </g>
+  <g color="var(--warn)" stroke="currentColor" stroke-width="1.5" fill="none">
+    <line x1="290" y1="98" x2="215" y2="58" marker-end="url(#ar)"/>
+    <line x1="410" y1="98" x2="485" y2="58" marker-end="url(#ar)"/>
+    <line x1="290" y1="154" x2="215" y2="194" marker-end="url(#ar)"/>
+    <line x1="410" y1="154" x2="485" y2="194" marker-end="url(#ar)"/>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="12.5" fill="var(--ink)">
+    <text x="205" y="44" text-anchor="end">Stale after the cutoff</text>
+    <text x="495" y="44">Never saw your private data</text>
+    <text x="205" y="212" text-anchor="end">Fills gaps confidently</text>
+    <text x="495" y="212">Can't show you a source</text>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="10.5" fill="var(--ink-soft)">
+    <text x="205" y="228" text-anchor="end">— hallucination</text>
+    <text x="495" y="228">— nothing to audit</text>
+  </g>
+</svg>
+<figcaption>Every one of these is a knowledge problem, not a reasoning problem. The model can reason fine; it just doesn't have the facts.</figcaption>
+</figure>
+
+<h3>Three ways to fix a knowledge gap</h3>
+
+<p>RAG isn't the only option. It's the one that wins on cost and freshness for most cases, and knowing why matters more than knowing the definition.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Approach</th><th>What you do</th><th>Why it hurts</th></tr></thead>
+<tbody>
+<tr>
+  <td>Fine-tuning</td>
+  <td>Retrain the weights on your data so the knowledge lives inside the model.</td>
+  <td>Expensive, slow, needs redoing every time a document changes. You can't cite a source or delete one fact. Teaches style well, facts badly.</td>
+</tr>
+<tr>
+  <td>Stuff the context</td>
+  <td>Paste every document into the prompt and let the model find what it needs.</td>
+  <td>Hits the context limit fast, costs tokens on every single call, and accuracy sags when the answer sits in the middle of a long dump.</td>
+</tr>
+<tr>
+  <td>RAG</td>
+  <td>Keep documents outside the model. Fetch only the few relevant pieces per question and paste those.</td>
+  <td>Answer quality now depends on retrieval quality. Adds moving parts to build and operate.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>The trade is deliberate: RAG moves the hard problem from <em>training</em> to <em>search</em>. Search is cheaper to fix, and you can fix it on a Tuesday afternoon without touching the model.</p>
+
+<h2>What it actually is</h2>
+
+<p>RAG is a pattern, not a library or a model. You bolt an external knowledge source onto a language model and give it the relevant excerpt along with the question, every time.</p>
+
+<p><strong>The analogy that sticks:</strong> a closed-book exam versus an open-book one. Closed book, the student answers from memory and bluffs when memory fails. Open book, the student looks up the right page first, then writes. The student is equally smart in both cases — what changed is what was in front of them.</p>
+
+<p>Two consequences follow directly and are worth holding onto:</p>
+<ul>
+  <li>Updating knowledge means updating documents, not retraining anything.</li>
+  <li>The answer can carry a citation, because you know exactly which chunks you handed over.</li>
+</ul>
+
+<h2>How it runs</h2>
+
+<p>It splits into two phases that happen at completely different times. Conflating them is the most common early confusion.</p>
+
+<figure>
+<svg viewBox="0 0 820 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Indexing phase runs ahead of time: documents are loaded, split into chunks, embedded, and stored in a vector store. Query phase runs per question: the question is embedded, similar chunks are searched from the store, stitched into a prompt with the question, and sent to the LLM to produce an answer.">
+  <rect x="8" y="14" width="804" height="150" rx="4" fill="none" stroke="var(--rule)" stroke-width="1" stroke-dasharray="5 4"/>
+  <rect x="8" y="216" width="804" height="192" rx="4" fill="none" stroke="var(--rule)" stroke-width="1" stroke-dasharray="5 4"/>
+
+  <g font-family="Archivo, sans-serif" font-size="12.5" font-weight="600">
+    <text x="24" y="36" fill="var(--ink-soft)">Phase 1 · Indexing — runs once, ahead of time, and again when docs change</text>
+    <text x="24" y="238" fill="var(--ink-soft)">Phase 2 · Query — runs on every single question</text>
+  </g>
+
+  <g font-family="Archivo, sans-serif" font-size="12.5" text-anchor="middle">
+    <rect x="28" y="58" width="128" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="92" y="80" fill="var(--ink)">Your documents</text>
+    <text x="92" y="96" font-size="10.5" fill="var(--ink-soft)">PDFs, docs, tickets</text>
+
+    <rect x="212" y="58" width="112" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="268" y="80" fill="var(--ink)">Split into</text>
+    <text x="268" y="96" fill="var(--ink)">chunks</text>
+
+    <rect x="380" y="58" width="112" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="436" y="80" fill="var(--ink)">Embed each</text>
+    <text x="436" y="96" fill="var(--ink)">chunk</text>
+
+    <rect x="548" y="52" width="150" height="58" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="623" y="76" fill="var(--ink)">Vector store</text>
+    <text x="623" y="94" font-size="10.5" fill="var(--ink-soft)">chunks + their vectors</text>
+  </g>
+
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="156" y1="81" x2="206" y2="81" marker-end="url(#ar)"/>
+    <line x1="324" y1="81" x2="374" y2="81" marker-end="url(#ar)"/>
+    <line x1="492" y1="81" x2="542" y2="81" marker-end="url(#ar)"/>
+  </g>
+
+  <g color="var(--mark)" stroke="currentColor" fill="none" stroke-width="2">
+    <path d="M623 112 L623 296" marker-end="url(#ar)" stroke-dasharray="6 4"/>
+  </g>
+  <text x="634" y="200" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)">searched, never retrained</text>
+
+  <g font-family="Archivo, sans-serif" font-size="12.5" text-anchor="middle">
+    <rect x="28" y="262" width="118" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="87" y="290" fill="var(--ink)">Question</text>
+
+    <rect x="196" y="262" width="118" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="255" y="284" fill="var(--ink)">Embed the</text>
+    <text x="255" y="300" fill="var(--ink)">question</text>
+
+    <rect x="364" y="262" width="150" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="439" y="284" fill="var(--ink)">Find nearest</text>
+    <text x="439" y="300" fill="var(--ink)">chunks (top-k)</text>
+
+    <rect x="364" y="340" width="150" height="46" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="439" y="362" fill="var(--ink)">Prompt = question</text>
+    <text x="439" y="378" fill="var(--ink)">+ those chunks</text>
+
+    <rect x="580" y="340" width="106" height="46" rx="3" fill="var(--card)" stroke="var(--gen)" stroke-width="2"/>
+    <text x="633" y="368" fill="var(--ink)">LLM</text>
+
+    <rect x="580" y="262" width="106" height="46" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="633" y="290" fill="var(--ink)">Answer</text>
+  </g>
+
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="146" y1="285" x2="190" y2="285" marker-end="url(#ar)"/>
+    <line x1="314" y1="285" x2="358" y2="285" marker-end="url(#ar)"/>
+    <path d="M439 308 L439 334" marker-end="url(#ar)"/>
+    <line x1="514" y1="363" x2="574" y2="363" marker-end="url(#ar)"/>
+    <path d="M633 340 L633 314" marker-end="url(#ar)"/>
+  </g>
+</svg>
+<figcaption>Phase 1 is a batch job. Phase 2 is a request. The vector store is the seam between them — the only thing the query path reads.</figcaption>
+</figure>
+
+<p>Broken into the four stages you'll see named everywhere:</p>
+
+<div class="stage">
+  <div class="stage-n">1</div>
+  <div class="stage-b">
+    <h3>Indexing</h3>
+    <p>Load your documents, cut them into chunks, turn each chunk into a vector, store both. Done ahead of time, repeated when the source material changes. This is where loaders, splitters, embedding models and vector stores live — the machinery covered next.</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-n">2</div>
+  <div class="stage-b">
+    <h3>Retrieval</h3>
+    <p>A question arrives. Embed it the same way, then search the store for the chunks whose vectors sit closest to it. You get back a handful — typically three to five. Closeness here means <em>similar in meaning</em>, which is why this beats keyword search when the user's wording doesn't match the document's.</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-n">3</div>
+  <div class="stage-b">
+    <h3>Augmentation</h3>
+    <p>Stitch the retrieved chunks and the original question into one prompt, with an instruction telling the model to answer from the supplied text only. This stage is pure string assembly — no model involved — and it's where most of your control sits.</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-n">4</div>
+  <div class="stage-b">
+    <h3>Generation</h3>
+    <p>Send it. The model reads the context and writes the answer. Because you know which chunks went in, you can attach citations to what comes out.</p>
+  </div>
+</div>
+
+<h2>What the augmented prompt looks like</h2>
+
+<p>Worth seeing concretely, because "augmentation" sounds more mysterious than it is:</p>
+
+<pre><code>You are a support assistant. Answer using ONLY the context below.
+If the context does not contain the answer, say you don't know.
+
+&lt;context&gt;
+[chunk 1] Refunds are processed within 5–7 business days of approval...
+[chunk 2] Orders marked "shipped" cannot be cancelled, but can be returned...
+[chunk 3] Store credit is issued instantly; card refunds take longer...
+&lt;/context&gt;
+
+Question: How long until I get my money back?</code></pre>
+
+<p>That's the entire trick. The "don't know" instruction matters — without it the model falls back on its own memory the moment retrieval comes up short, and you're silently back to hallucinating.</p>
+
+<h2>What you need to build one</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Piece</th><th>Job</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td>Document loader</td><td>Pull raw text out of PDFs, web pages, databases, wherever the source lives.</td><td>Indexing</td></tr>
+<tr><td>Text splitter</td><td>Cut long documents into chunks small enough to retrieve precisely and fit in a prompt.</td><td>Indexing</td></tr>
+<tr><td>Embedding model</td><td>Turn text into a vector so that similar meaning lands in a similar place.</td><td>Both</td></tr>
+<tr><td>Vector store</td><td>Hold the chunks and vectors, and answer "what's nearest to this?" fast.</td><td>Both</td></tr>
+<tr><td>Retriever</td><td>Take a question, return the top-k chunks. Thin wrapper over the store, but the place you tune.</td><td>Query</td></tr>
+<tr><td>Prompt template</td><td>Assemble context plus question plus instructions into the final prompt.</td><td>Query</td></tr>
+<tr><td>LLM</td><td>Read the context, produce the answer.</td><td>Query</td></tr>
+<tr><td>Orchestration</td><td>Wire the above into a chain. LangChain and LlamaIndex exist for this; plain Python works too.</td><td>Both</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Note that the embedding model appears in both phases — and it has to be <em>the same model</em> in both. Index with one and query with another and the vectors live in incompatible spaces, so retrieval returns noise. That one catches people.</p>
+
+<h2>Tools and frameworks</h2>
+
+<p>Each piece in that table is a slot with several candidates. LangChain fills the orchestration slot only — it's one layer, not the whole stack, even though tutorials make it look like the whole stack.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Slot</th><th>Common choices</th></tr></thead>
+<tbody>
+<tr><td>Orchestration</td><td>LangChain, LlamaIndex, Haystack — or plain Python</td></tr>
+<tr><td>Embeddings</td><td>OpenAI, Cohere, Voyage; local: BGE, E5, <code>sentence-transformers</code></td></tr>
+<tr><td>Vector store</td><td>FAISS and Chroma (local, easy), Qdrant, Weaviate, Milvus, pgvector, Pinecone (managed)</td></tr>
+<tr><td>Reranker</td><td>Cohere Rerank, BGE reranker, any cross-encoder</td></tr>
+<tr><td>LLM</td><td>Any hosted API, or Ollama / vLLM for local</td></tr>
+<tr><td>Evaluation</td><td>RAGAS, DeepEval, TruLens, Phoenix, LangSmith</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>On LangChain specifically</h3>
+
+<p>It's a reasonable place to learn the vocabulary, because its abstractions map one-to-one onto the concepts: loader, splitter, embedding, vector store, retriever, chain. Seeing them as named objects makes the pipeline concrete.</p>
+
+<p>It's also a thick wrapper over roughly forty lines of Python. Plenty of teams prototype in LangChain and then strip it out, because debugging retrieval through an abstraction layer is harder than owning the six steps yourself. LlamaIndex is the main alternative and leans harder into indexing and retrieval, which is often where the real problem lives.</p>
+
+<p>Worth doing at least once without a framework: chunk, embed, store, search, format the prompt, call the model. After that the abstractions are a convenience rather than a mystery.</p>
+
+<h2>What it buys you, and where it still breaks</h2>
+
+<p>The wins are the four failures from the top, inverted: knowledge stays current because you re-index instead of retrain; private data works because it never had to enter training; hallucination drops because the facts are in front of the model; and answers become auditable because you know what you handed over.</p>
+
+<div class="flag">
+  <strong>The honest caveat</strong>
+  <p style="margin:.35rem 0 0">RAG doesn't remove hallucination, it relocates the risk. If retrieval returns the wrong chunks, the model will answer fluently and wrongly from them — and it'll look just as confident. Garbage retrieved is garbage generated. Most RAG systems that disappoint in production have a retrieval problem, not a model problem.</p>
+</div>
+
+<p>Other things that bite: chunks cut mid-thought lose the context needed to make sense; questions spanning many documents fail when you only fetch top-5; and every retrieval adds latency and tokens to each call.</p>
+
+<h2>Where you actually meet it</h2>
+
+<p>The canonical example is the one everyone starts with: upload a document, ask questions about it, get answers grounded in that document. But it's worth being precise about when that's really RAG.</p>
+
+<div class="flag" style="border-left-color:var(--mark)">
+  <strong style="color:var(--ink)">Is "chat with my PDF" RAG?</strong>
+  <p style="margin:.35rem 0 0">Only if the document gets <em>searched</em> per question. A five-page PDF that fits in the context window usually just gets pasted whole into the prompt — that's context stuffing, and it works fine. It becomes RAG when the document is too big to paste, so you index it once and fetch only the matching chunks each time you're asked something. Identical experience for the user; completely different machinery.</p>
+  <p style="margin:.5rem 0 0">Rule of thumb: one small document, no RAG needed. A folder, a wiki, a year of tickets — RAG.</p>
+</div>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Use case</th><th>What sits in the knowledge base</th><th>Why RAG and not the model alone</th></tr></thead>
+<tbody>
+<tr><td>Document Q&amp;A</td><td>One large PDF or a folder of them — contracts, manuals, annual reports.</td><td>Too big for the context window, and the model never saw the file.</td></tr>
+<tr><td>Internal assistant</td><td>Company wiki, HR policies, runbooks, design docs.</td><td>Private by definition. Changes weekly, so retraining is out.</td></tr>
+<tr><td>Support bot</td><td>Help centre articles plus resolved ticket history.</td><td>Answers must match current policy and be traceable to an article.</td></tr>
+<tr><td>Codebase Q&amp;A</td><td>Repo files, READMEs, ADRs, PR discussions.</td><td>Your code isn't in training data, and it moves every day.</td></tr>
+<tr><td>Research assistant</td><td>A paper collection, lab notes, literature dumps.</td><td>Post-cutoff publications, plus answers need citations.</td></tr>
+<tr><td>Compliance lookup</td><td>Regulations, audit reports, policy versions.</td><td>Wrong or stale answers carry real cost, so sources are mandatory.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The pattern across all of them: the knowledge is either <em>private</em>, <em>too large</em>, <em>too fresh</em>, or <em>needs a citation</em>. Hit any one of those and RAG is the answer. Hit none and you probably don't need it.</p>
+
+<h2>Where evaluation fits</h2>
+
+<p>Because the failure modes split cleanly by stage, so does the testing — and this is the part worth internalising early:</p>
+
+<ul>
+  <li><strong>Retrieval quality</strong> — did the right chunks come back at all? Measured independently of the model, with recall and precision over a labelled question-to-chunk set.</li>
+  <li><strong>Faithfulness</strong> — is every claim in the answer actually supported by the retrieved context, or did the model embellish?</li>
+  <li><strong>Answer relevance</strong> — does it address the question asked, rather than something adjacent that happened to be retrieved?</li>
+  <li><strong>Refusal behaviour</strong> — when nothing relevant is retrievable, does it say so, or invent?</li>
+</ul>
+
+<p>Testing the pipeline end-to-end only tells you something broke. Scoring the stages separately tells you which one.</p>
+
+<footer>
+  <p style="margin:0">Next, the machinery skipped here: document loaders, chunking strategies and overlap, how embeddings actually encode meaning, vector stores and similarity search, then retriever tuning and reranking.</p>
+</footer>
+
+</div>
+</body>
+</html>

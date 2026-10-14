@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vectors and vector stores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9EDEE; --card:#F4F7F7; --ink:#16243C; --ink-soft:#4A5A72;
+    --rule:#BCC7CC; --mark:#FFD84D; --mark-wash:#FCEFC0; --gen:#0E6B66; --warn:#8C3A2B;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --sans:'Archivo',ui-sans-serif,system-ui,sans-serif;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+      --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+    --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:1.0625rem;line-height:1.66}
+  .wrap{max-width:46rem;margin:0 auto;padding:3.5rem 1.35rem 5rem}
+  h1,h2,h3,h4,th,.partno{font-family:var(--sans)}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.6rem;margin-bottom:2.4rem}
+  h1{font-size:clamp(2rem,7vw,3rem);line-height:1.04;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+  .src{font-size:.9rem;color:var(--ink-soft);font-style:italic;margin:0}
+  .lede{font-size:clamp(1.12rem,3.4vw,1.35rem);line-height:1.5;margin:0 0 2.2rem}
+  mark{background:var(--mark-wash);color:inherit;padding:.06em .18em;box-shadow:0 1px 0 var(--mark)}
+
+  .part{margin:3.4rem 0 1.4rem;border-top:2px solid var(--ink);padding-top:1rem}
+  .partno{font-size:.8rem;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:.2rem}
+  .part h2{border:none;margin:0;padding:0;font-size:1.75rem;letter-spacing:-.015em}
+
+  h2{font-size:1.24rem;font-weight:700;letter-spacing:-.01em;margin:2.9rem 0 .85rem;padding-top:.95rem;border-top:1px solid var(--rule)}
+  h3{font-size:1.02rem;font-weight:600;margin:1.7rem 0 .4rem}
+  p{margin:0 0 1rem}
+  ul,ol{margin:0 0 1rem;padding-left:1.2rem}
+  li{margin-bottom:.45rem}
+
+  figure{margin:1.8rem 0;padding:1.1rem;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow-x:auto}
+  figure svg{display:block;width:100%;height:auto;min-width:440px;max-width:100%}
+  figcaption{font-family:var(--sans);font-size:.8rem;color:var(--ink-soft);margin-top:.85rem;line-height:1.45}
+
+  .tbl{overflow-x:auto;margin:1.4rem 0}
+  table{border-collapse:collapse;width:100%;min-width:34rem;font-size:.93rem}
+  th,td{text-align:left;padding:.58rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-size:.8rem;font-weight:600;color:var(--ink-soft);border-bottom:1.5px solid var(--ink)}
+  td:first-child{font-family:var(--sans);font-weight:500}
+
+  pre{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.81rem;line-height:1.55;
+      background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--mark);
+      border-radius:3px;padding:.95rem 1rem;overflow-x:auto;margin:1.2rem 0;white-space:pre}
+  code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.87em;
+       background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:.06em .3em}
+  pre code{background:none;border:none;padding:0;font-size:inherit}
+
+  .flag{border-left:3px solid var(--warn);padding:.15rem 0 .15rem 1rem;margin:1.4rem 0;color:var(--ink-soft)}
+  .flag.tip{border-left-color:var(--mark)}
+  .flag strong{color:var(--warn);font-family:var(--sans);font-size:.9rem;font-weight:600}
+  .flag.tip strong{color:var(--ink)}
+  .flag p{margin:.35rem 0 0}
+
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:2px solid var(--ink);font-size:.95rem;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Vectors and vector stores</h1>
+  <p class="src">Part three of the RAG notes: what a vector actually is, how text turns into numbers, why storing them needs its own kind of database, and where the line sits between a vector store and a vector DB.</p>
+</header>
+
+<p class="lede">A vector is just a list of numbers that locates a piece of text in space. <mark>Similar meaning lands in a similar place</mark> — and once that's true, "find relevant documents" collapses into "find nearby points".</p>
+
+<div class="part"><span class="partno">Part one</span><h2>What a vector is</h2></div>
+
+<p>The word carries baggage from school physics — arrows, force, magnitude and direction. Same underlying maths, different use. Here a vector is a coordinate: a fixed-length list of numbers describing a position.</p>
+
+<p>Two numbers place a point on a page. Three place it in a room. An embedding model uses several hundred, and each of those numbers is a <strong>dimension</strong> — one axis of a space you cannot picture but can still measure distances in.</p>
+
+<pre><code>"refund policy"  →  [0.021, -0.418, 0.117, ..., 0.093]
+                     └── 384, 768 or 1536 numbers ──┘</code></pre>
+
+<p>Two things people expect that aren't true. Dimensions aren't human-readable — no single number means "formality" or "topic: finance". The meaning is smeared across all of them, learned rather than designed. And the individual values mean nothing in isolation; only <em>relative position</em> to other vectors carries information.</p>
+
+<p>That tweet you saw — everything becoming numbers — is literal. A neural network only does arithmetic. Text, images and audio all get converted into numbers at the door, and everything after that is matrix multiplication.</p>
+
+<h2>How text becomes numbers</h2>
+
+<figure>
+<svg viewBox="0 0 780 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Text is tokenized into pieces, each token mapped to an ID, looked up as a starting vector, passed through transformer layers that mix in context, then pooled into one vector for the whole chunk.">
+  <defs>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="128" y1="76" x2="164" y2="76" marker-end="url(#ar3)"/>
+    <line x1="284" y1="76" x2="320" y2="76" marker-end="url(#ar3)"/>
+    <line x1="440" y1="76" x2="476" y2="76" marker-end="url(#ar3)"/>
+    <line x1="612" y1="76" x2="648" y2="76" marker-end="url(#ar3)"/>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="12.5" text-anchor="middle">
+    <rect x="12" y="52" width="116" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="70" y="74" fill="var(--ink)">Chunk of text</text>
+    <text x="70" y="90" font-size="10" fill="var(--ink-soft)">"refund policy"</text>
+
+    <rect x="168" y="52" width="116" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="226" y="74" fill="var(--ink)">Tokens → IDs</text>
+    <text x="226" y="90" font-size="10" fill="var(--ink-soft)">[re][fund][ policy]</text>
+
+    <rect x="324" y="52" width="116" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="382" y="74" fill="var(--ink)">Lookup table</text>
+    <text x="382" y="90" font-size="10" fill="var(--ink-soft)">one vector per token</text>
+
+    <rect x="480" y="46" width="132" height="60" rx="3" fill="var(--card)" stroke="var(--gen)" stroke-width="2"/>
+    <text x="546" y="70" fill="var(--ink)">Transformer</text>
+    <text x="546" y="87" font-size="10" fill="var(--ink-soft)">tokens see each other</text>
+
+    <rect x="652" y="52" width="116" height="48" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="710" y="74" fill="var(--ink)">Pool → one</text>
+    <text x="710" y="90" fill="var(--ink)">vector</text>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">
+    <text x="226" y="132">split into pieces,</text>
+    <text x="226" y="146">each with a number</text>
+    <text x="382" y="132">a starting position,</text>
+    <text x="382" y="146">no context yet</text>
+    <text x="546" y="132">context mixed in —</text>
+    <text x="546" y="146">"bank" now disambiguated</text>
+    <text x="710" y="132">average them into</text>
+    <text x="710" y="146">a single point</text>
+  </g>
+</svg>
+<figcaption>Steps three and four are where meaning enters. The lookup gives a generic starting point; the transformer layers reshape it based on the surrounding words.</figcaption>
+</figure>
+
+<ol>
+  <li><strong>Tokenize.</strong> The text is cut into subword pieces from a fixed vocabulary. "Refund" might be one token, or "re" plus "fund". Each piece has an integer ID — pure bookkeeping, no meaning yet.</li>
+  <li><strong>Look up.</strong> Each ID indexes into a big table of learned vectors. This gives every token a starting position, identical no matter the sentence.</li>
+  <li><strong>Contextualise.</strong> The transformer layers let tokens attend to each other and adjust. This is why "bank" in a river sentence and "bank" in a finance sentence end up in different places.</li>
+  <li><strong>Pool.</strong> You now have one vector per token, but you want one per chunk — so they're averaged (or the special <code>[CLS]</code> token's vector is taken). That single vector is what goes into the store.</li>
+</ol>
+
+<h3>Where the meaning actually comes from</h3>
+
+<p>Nobody hand-assigned any of those numbers. They're learned during training, from an objective that pushes text appearing in similar contexts toward similar positions — and pushes unrelated text apart. Do that over billions of examples and the geometry starts to encode meaning as a side effect.</p>
+
+<p>The famous demonstration is that vector arithmetic partially works: <code>king − man + woman</code> lands near <code>queen</code>. It's a simplification of what modern models do, but it makes the point — relationships end up as directions in the space.</p>
+
+<h3>Dimensions and why the number varies</h3>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Model</th><th>Dimensions</th><th>Character</th></tr></thead>
+<tbody>
+<tr><td>MiniLM-L6-v2</td><td>384</td><td>Tiny and fast, runs on a laptop CPU. Fine for learning.</td></tr>
+<tr><td>BGE-base / E5-base</td><td>768</td><td>Strong open models, the usual local default.</td></tr>
+<tr><td>OpenAI text-embedding-3-small</td><td>1536</td><td>Hosted, cheap, good general quality.</td></tr>
+<tr><td>OpenAI text-embedding-3-large</td><td>3072</td><td>Better on hard retrieval, 2× the storage and compute.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>More dimensions means more capacity for nuance, and more storage, more compute per comparison, and slower search. A million chunks at 1536 dimensions in float32 is around six gigabytes of raw vectors before any index overhead. Bigger is not automatically better — benchmark on your own data.</p>
+
+<div class="flag">
+  <strong>The rule that catches everyone</strong>
+  <p>Index and query with the same embedding model. Different models produce different spaces, so their vectors aren't comparable — you'll get results, they'll just be noise. Corollary: upgrading your embedding model means re-embedding the entire corpus, which is a real operational cost once you're past a few million chunks.</p>
+</div>
+
+<div class="part"><span class="partno">Part two</span><h2>Why a store, and what's hard about it</h2></div>
+
+<p>Your movie example is exactly the right intuition, and it's worth stating precisely because it's the same operation RAG performs.</p>
+
+<p>Represent each movie as a vector. Someone watches one. Find the movies whose vectors sit nearest to that one and recommend those. Nothing about titles or genres is matched explicitly — nearness in the space stands in for "similar". Swap movies for text chunks and "the movie they watched" for "the user's question", and you have retrieval.</p>
+
+<figure>
+<svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A two-dimensional scatter showing three clusters of related documents, with a query point placed inside one cluster and its three nearest neighbours circled.">
+  <rect x="40" y="20" width="620" height="240" fill="none" stroke="var(--rule)" stroke-width="1"/>
+
+  <g fill="var(--ink-soft)" opacity="0.75">
+    <circle cx="130" cy="80" r="5"/><circle cx="160" cy="105" r="5"/><circle cx="105" cy="118" r="5"/>
+    <circle cx="150" cy="60" r="5"/><circle cx="185" cy="82" r="5"/>
+    <circle cx="530" cy="75" r="5"/><circle cx="565" cy="98" r="5"/><circle cx="505" cy="110" r="5"/>
+    <circle cx="580" cy="62" r="5"/>
+  </g>
+  <text x="145" y="155" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="middle">shipping docs</text>
+  <text x="545" y="150" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="middle">account setup docs</text>
+
+  <g fill="var(--ink-soft)" opacity="0.75">
+    <circle cx="300" cy="190" r="5"/><circle cx="345" cy="215" r="5"/><circle cx="390" cy="180" r="5"/>
+    <circle cx="275" cy="225" r="5"/><circle cx="415" cy="222" r="5"/><circle cx="350" cy="160" r="5"/>
+  </g>
+
+  <circle cx="345" cy="197" r="52" fill="none" stroke="var(--mark)" stroke-width="2" stroke-dasharray="5 4"/>
+  <g fill="var(--mark)">
+    <circle cx="345" cy="215" r="6.5"/><circle cx="390" cy="180" r="6.5"/><circle cx="300" cy="190" r="6.5"/>
+  </g>
+  <path d="M340 198 l-9 -9 M340 198 l9 9 M340 198 l9 -9 M340 198 l-9 9" stroke="var(--warn)" stroke-width="2.5" fill="none"/>
+  <circle cx="340" cy="198" r="11" fill="none" stroke="var(--warn)" stroke-width="2"/>
+
+  <text x="345" y="272" font-family="Archivo, sans-serif" font-size="11.5" fill="var(--ink)" text-anchor="middle">refund docs</text>
+  <text x="345" y="292" font-family="Archivo, sans-serif" font-size="11" fill="var(--warn)" text-anchor="middle">✕ = the question "how long until I get my money back?"</text>
+  <text x="620" y="292" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="end">highlighted = top-3 retrieved</text>
+</svg>
+<figcaption>Flattened to two dimensions for drawing; the real space has hundreds. The question is embedded into the same space as the documents, which is the entire reason nearest-neighbour search answers it.</figcaption>
+</figure>
+
+<h3>Measuring "near"</h3>
+
+<p><strong>Cosine similarity</strong> is the usual choice: the angle between two vectors, ignoring their length. Two chunks about refunds point the same way whether one is a sentence and the other a page. Dot product and Euclidean distance also appear, and on normalised vectors cosine and dot product rank results identically.</p>
+
+<h3>The challenge this creates</h3>
+
+<p>The naive implementation is a loop: compare the query to every stored vector, sort, take the top k. Ten thousand chunks — fine, a few milliseconds with NumPy. Ten million chunks at 1536 dimensions, on every request, with concurrent users — completely dead. Search cost grows linearly with corpus size, and each comparison is itself hundreds of multiplications.</p>
+
+<p>So the solution is <strong>approximate nearest neighbour</strong> search: give up the guarantee of finding the exact top k, and buy a large speedup for a small accuracy loss. The main approaches:</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Index</th><th>Idea</th><th>Trade</th></tr></thead>
+<tbody>
+<tr><td>Flat</td><td>Compare against everything. Exact.</td><td>Perfect recall, linear cost. Genuinely fine below ~100k vectors.</td></tr>
+<tr><td>HNSW</td><td>A layered graph of neighbours; you hop toward the query, coarse layers first.</td><td>Fast and high recall. Memory-hungry. The most common default.</td></tr>
+<tr><td>IVF</td><td>Cluster vectors up front, search only the nearest few clusters.</td><td>Lower memory. Misses results sitting near a cluster border.</td></tr>
+<tr><td>PQ / quantisation</td><td>Compress vectors into fewer bits.</td><td>Big memory savings, some precision lost. Often stacked on IVF or HNSW.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>These indexes have knobs that trade recall against latency directly. That's a real evaluation surface, not a config detail — a store returning the wrong chunks fast looks exactly like a chunking problem from the outside.</p>
+
+<p>And search is only part of the job. A store also has to persist across restarts, add and delete vectors without a full rebuild, filter by metadata (<em>nearest chunks, but only from current-version docs the user may see</em>), and handle concurrent reads. Filtering combined with ANN is a particularly awkward problem — filter first and the index is useless, filter after and you may not have enough survivors.</p>
+
+<div class="part"><span class="partno">Part three</span><h2>Vector store vs vector database</h2></div>
+
+<p>The terms get used interchangeably and the boundary is genuinely fuzzy. The distinction that holds up is <strong>library versus database</strong> — a data structure you embed in your program, or a system you run and operate.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th></th><th>Vector store / index library</th><th>Vector database</th></tr></thead>
+<tbody>
+<tr><td>What it is</td><td>An in-process index. Lives inside your Python process.</td><td>A server you deploy, query over the network.</td></tr>
+<tr><td>Examples</td><td>FAISS, Annoy, ScaNN, hnswlib</td><td>Qdrant, Weaviate, Milvus, Pinecone, pgvector on Postgres</td></tr>
+<tr><td>Persistence</td><td>You save and load the index file yourself.</td><td>Durable storage, backups, replication.</td></tr>
+<tr><td>Updates</td><td>Often rebuild-heavy; deletes can be awkward.</td><td>Proper insert, update, delete.</td></tr>
+<tr><td>Filtering</td><td>Minimal or none — metadata is your problem.</td><td>Metadata filters combined with the vector search.</td></tr>
+<tr><td>Operations</td><td>None. It's a file.</td><td>Auth, multi-tenancy, scaling, monitoring.</td></tr>
+<tr><td>Good for</td><td>Learning, prototypes, batch jobs, embedded use.</td><td>Anything multi-user, updating, or permission-aware.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Two things blur the line. Chroma runs either embedded or as a server, so it straddles both. And pgvector isn't a vector database at all — it's an extension that adds vector columns to Postgres, which is often the right answer when you already run Postgres and your vectors number in the hundreds of thousands.</p>
+
+<div class="flag tip">
+  <strong>Why the naming confuses everyone</strong>
+  <p>LangChain calls its interface <code>VectorStore</code>, and every backend implements it — FAISS, Chroma, Qdrant, Pinecone alike. So in LangChain-speak a vector database <em>is</em> a vector store, because "store" is the name of the slot, not a claim about the technology. Read it as "the retrieval backend" and the ambiguity stops mattering.</p>
+</div>
+
+<h3>Picking one to start</h3>
+<ul>
+  <li><strong>Learning or a first build:</strong> Chroma or FAISS locally. No server, no keys, no cost, and you'll see the mechanics rather than an API.</li>
+  <li><strong>Already running Postgres:</strong> pgvector. One less system to operate, and joins against your existing tables come free.</li>
+  <li><strong>Real app, self-hosted:</strong> Qdrant or Weaviate. Good filtering, sane operations.</li>
+  <li><strong>Don't want to run it:</strong> Pinecone or a managed Qdrant.</li>
+</ul>
+
+<p>Swapping later is not the disaster it sounds like — the interface is roughly insert, search, delete. The expensive part of a migration is re-embedding, and that's only forced if you change embedding model at the same time.</p>
+
+<div class="part"><span class="partno">Part four</span><h2>Two things worth being clear on</h2></div>
+
+<h3>Embeddings are used for more than RAG</h3>
+
+<p>Worth separating, because "what is RAG used for" and "what are embeddings used for" get tangled. RAG specifically means retrieving text to feed a generator. Embeddings on their own power plenty that has no LLM generation in it at all:</p>
+
+<ul>
+  <li><strong>Semantic search</strong> — return the documents, no generated answer. Half of what people call RAG is really this.</li>
+  <li><strong>Recommendation</strong> — your movie example. Nearest items, no text generation.</li>
+  <li><strong>Classification and routing</strong> — embed an incoming request, see which labelled cluster it lands nearest. A common way to build intent routers.</li>
+  <li><strong>Deduplication and clustering</strong> — find near-identical tickets or listings; group support requests by theme.</li>
+  <li><strong>Anomaly detection</strong> — flag inputs that sit far from everything seen before.</li>
+  <li><strong>Agent memory</strong> — store past interactions, retrieve the relevant ones later. Mechanically RAG over conversation history.</li>
+</ul>
+
+<h3>Small-scale RAG is easy; production RAG is not</h3>
+
+<p>Both halves are true, and the gap is not about the algorithm. A demo over fifty PDFs takes an afternoon. The same system for a company breaks on things the demo never exercises:</p>
+
+<ul>
+  <li><strong>Document quality.</strong> Real corpora contain scans, broken exports, three versions of the same policy, and files nobody can identify the owner of.</li>
+  <li><strong>Freshness.</strong> Documents change. You need incremental re-indexing and deletion, not a nightly full rebuild.</li>
+  <li><strong>Permissions.</strong> Retrieval must respect who's asking. A chunk the user shouldn't see must never reach the prompt — and filtering interacts badly with ANN indexes.</li>
+  <li><strong>Query variety.</strong> Users ask comparative, multi-hop and vague questions. Top-k similarity handles none of those well.</li>
+  <li><strong>Evaluation.</strong> Without a labelled set you cannot tell whether a change helped, so tuning becomes vibes and every regression is invisible.</li>
+  <li><strong>Cost and latency.</strong> Embedding calls, vector search, reranking and generation all stack up on every request.</li>
+</ul>
+
+<p>On the theory-versus-practice question: the concepts here are genuinely thin — a vector is a list of numbers, similar things sit close together, searching everything is too slow so you approximate. That's most of it. What's deep is the engineering around them, and that part only yields to building. The writing about AI skews theoretical because theory is easier to write than a working system, not because the field is.</p>
+
+<footer>
+  <p style="margin:0">Next natural step is building it: chunk, embed, store, search, prompt, generate — locally, no framework, with a small labelled question set from day one so you can see retrieval succeed and fail on purpose.</p>
+</footer>
+
+</div>
+</body>
+</html>

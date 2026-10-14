@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retrieval, augmentation, generation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9EDEE; --card:#F4F7F7; --ink:#16243C; --ink-soft:#4A5A72;
+    --rule:#BCC7CC; --mark:#FFD84D; --mark-wash:#FCEFC0; --gen:#0E6B66; --warn:#8C3A2B;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --sans:'Archivo',ui-sans-serif,system-ui,sans-serif;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+      --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+    --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:1.0625rem;line-height:1.66}
+  .wrap{max-width:46rem;margin:0 auto;padding:3.5rem 1.35rem 5rem}
+  h1,h2,h3,h4,th,.partno{font-family:var(--sans)}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.6rem;margin-bottom:2.4rem}
+  h1{font-size:clamp(1.9rem,6.4vw,2.9rem);line-height:1.04;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+  .src{font-size:.9rem;color:var(--ink-soft);font-style:italic;margin:0}
+  .lede{font-size:clamp(1.12rem,3.4vw,1.35rem);line-height:1.5;margin:0 0 2.2rem}
+  mark{background:var(--mark-wash);color:inherit;padding:.06em .18em;box-shadow:0 1px 0 var(--mark)}
+
+  .part{margin:3.4rem 0 1.4rem;border-top:2px solid var(--ink);padding-top:1rem}
+  .partno{font-size:.8rem;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:.2rem}
+  .part h2{border:none;margin:0;padding:0;font-size:1.72rem;letter-spacing:-.015em}
+
+  h2{font-size:1.24rem;font-weight:700;letter-spacing:-.01em;margin:2.9rem 0 .85rem;padding-top:.95rem;border-top:1px solid var(--rule)}
+  h3{font-size:1.02rem;font-weight:600;margin:1.7rem 0 .4rem}
+  p{margin:0 0 1rem}
+  ul,ol{margin:0 0 1rem;padding-left:1.2rem}
+  li{margin-bottom:.45rem}
+
+  figure{margin:1.8rem 0;padding:1.1rem;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow-x:auto}
+  figure svg{display:block;width:100%;height:auto;min-width:440px;max-width:100%}
+  figcaption{font-family:var(--sans);font-size:.8rem;color:var(--ink-soft);margin-top:.85rem;line-height:1.45}
+
+  .tbl{overflow-x:auto;margin:1.4rem 0}
+  table{border-collapse:collapse;width:100%;min-width:34rem;font-size:.92rem}
+  th,td{text-align:left;padding:.58rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-size:.8rem;font-weight:600;color:var(--ink-soft);border-bottom:1.5px solid var(--ink)}
+  td:first-child{font-family:var(--sans);font-weight:500}
+
+  pre{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.8rem;line-height:1.55;
+      background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--mark);
+      border-radius:3px;padding:.95rem 1rem;overflow-x:auto;margin:1.2rem 0;white-space:pre}
+  code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.87em;
+       background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:.06em .3em}
+  pre code{background:none;border:none;padding:0;font-size:inherit}
+
+  .flag{border-left:3px solid var(--warn);padding:.15rem 0 .15rem 1rem;margin:1.4rem 0;color:var(--ink-soft)}
+  .flag.tip{border-left-color:var(--mark)}
+  .flag strong{color:var(--warn);font-family:var(--sans);font-size:.9rem;font-weight:600}
+  .flag.tip strong{color:var(--ink)}
+  .flag p{margin:.35rem 0 0}
+
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:2px solid var(--ink);font-size:.95rem;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Retrieval, augmentation, generation</h1>
+  <p class="src">Part four of the RAG notes: everything that happens after a question arrives. The indexing half decides what <em>can</em> be found; this half decides what actually gets found, what reaches the model, and what it does with it.</p>
+</header>
+
+<p class="lede">Almost every disappointing RAG answer is created here. <mark>The model is rarely the problem — the shortlist it was handed usually is</mark>, and the only way to know is to inspect the two separately.</p>
+
+<figure>
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The query-time path: question, optional rewrite, parallel dense and keyword search producing a wide candidate set, reranked down to a few chunks, assembled into a prompt, then generated into an answer with citations.">
+  <defs>
+    <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <g font-family="Archivo, sans-serif" font-size="12.5" text-anchor="middle">
+    <rect x="14" y="120" width="104" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="66" y="147" fill="var(--ink)">Question</text>
+
+    <rect x="150" y="120" width="112" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="206" y="141" fill="var(--ink)">Rewrite</text>
+    <text x="206" y="157" font-size="10" fill="var(--ink-soft)">optional</text>
+
+    <rect x="296" y="78" width="118" height="40" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="355" y="103" fill="var(--ink)">Vector search</text>
+
+    <rect x="296" y="166" width="118" height="40" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="355" y="191" fill="var(--ink)">Keyword (BM25)</text>
+
+    <rect x="448" y="120" width="104" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="500" y="141" fill="var(--ink)">Merge</text>
+    <text x="500" y="157" font-size="10" fill="var(--ink-soft)">~50 candidates</text>
+
+    <rect x="586" y="120" width="104" height="44" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="638" y="141" fill="var(--ink)">Rerank</text>
+    <text x="638" y="157" font-size="10" fill="var(--ink-soft)">keep 4–5</text>
+
+    <rect x="586" y="36" width="104" height="40" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="638" y="61" fill="var(--ink)">Assemble</text>
+
+    <rect x="586" y="232" width="104" height="40" rx="3" fill="var(--card)" stroke="var(--gen)" stroke-width="2"/>
+    <text x="638" y="257" fill="var(--ink)">Generate</text>
+
+    <rect x="716" y="120" width="72" height="44" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="752" y="141" fill="var(--ink)">Answer</text>
+    <text x="752" y="157" font-size="10" fill="var(--ink-soft)">+ cites</text>
+  </g>
+
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="118" y1="142" x2="144" y2="142" marker-end="url(#a4)"/>
+    <path d="M262 136 L278 136 L278 98 L290 98" marker-end="url(#a4)"/>
+    <path d="M262 148 L278 148 L278 186 L290 186" marker-end="url(#a4)"/>
+    <path d="M414 98 L430 98 L430 136 L442 136" marker-end="url(#a4)"/>
+    <path d="M414 186 L430 186 L430 148 L442 148" marker-end="url(#a4)"/>
+    <line x1="552" y1="142" x2="580" y2="142" marker-end="url(#a4)"/>
+    <path d="M638 120 L638 82" marker-end="url(#a4)"/>
+    <path d="M690 56 L716 56 L716 110" marker-end="url(#a4)" stroke-dasharray="3 3"/>
+    <path d="M638 164 L638 226" marker-end="url(#a4)" stroke-dasharray="3 3"/>
+    <path d="M690 252 L730 252 L730 170" marker-end="url(#a4)"/>
+  </g>
+
+  <text x="400" y="288" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="middle">retrieve wide, then narrow hard — recall first, precision second</text>
+</svg>
+<figcaption>The dashed boxes are optional. A first build is question → vector search → prompt → answer; everything else is added when measurement says it's needed.</figcaption>
+</figure>
+
+<div class="part"><span class="partno">Part one</span><h2>Retrieval</h2></div>
+
+<p>The retriever takes a question and returns chunks. That's the whole interface, and the reason it's deceptive: the interface never changes while the quality of what comes back varies enormously.</p>
+
+<h2>Top-k, and the trap inside it</h2>
+
+<p><code>k</code> is how many chunks you take. Too few and the answer isn't in the context. Too many and you dilute the prompt, burn tokens, and push the useful chunk into the middle where models attend least.</p>
+
+<p>Three to five is the usual starting range with reranking, five to ten without. But the number matters less than this:</p>
+
+<div class="flag">
+  <strong>Similarity search always returns something</strong>
+  <p>Ask your YouTube bot about the offside rule and it will still return the five chunks nearest that question — nearest in a corpus where nothing is close. The scores will be poor, but a plain top-k retriever doesn't look at scores, it looks at rank. The model then gets five irrelevant chunks and an instruction to answer, and often obliges.</p>
+  <p>Fix: set a similarity threshold and return nothing below it, then handle the empty case explicitly in the prompt. This is the single most common missing piece in first builds, and the reason "ask it something not in the video" is such a good test.</p>
+</div>
+
+<h3>MMR — when results are redundant</h3>
+
+<p>Pure similarity often returns five near-identical chunks, especially with overlap. Maximal marginal relevance re-scores candidates by relevance <em>minus</em> similarity to what's already selected, so the set covers more ground. Useful for broad questions; unnecessary for narrow factual ones.</p>
+
+<h3>Metadata filtering</h3>
+
+<p>Restrict the search before or during similarity: current version only, this product only, documents this user may see. This is also where permissions live — and worth repeating that filtering interacts awkwardly with approximate indexes, so test that a heavily filtered query still returns good results rather than whatever survived.</p>
+
+<h2>Hybrid search</h2>
+
+<p>Dense vectors are good at meaning and bad at exact strings. Ask about error code <code>E4017</code> or a surname, and embeddings will cheerfully return chunks about similar-sounding things, because nothing in the geometry makes an exact token match special.</p>
+
+<p>Keyword search (BM25) is the opposite — excellent at exact terms, useless when the user's wording differs from the document's. Hybrid runs both and fuses the ranked lists, usually with reciprocal rank fusion, which merges by rank position so the two score scales never have to be reconciled.</p>
+
+<p>For most real corpora this is a bigger win than any amount of chunking tuning, because real questions contain names, IDs, version numbers and error codes.</p>
+
+<h2>Reranking</h2>
+
+<p>The key distinction, and worth understanding because it explains the whole retrieve-wide-then-narrow shape:</p>
+
+<figure>
+<svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A bi-encoder embeds query and document separately and compares vectors, allowing precomputation. A cross-encoder feeds query and document together through the model to produce a relevance score, which is accurate but cannot be precomputed.">
+  <g font-family="Archivo, sans-serif" font-size="12" text-anchor="middle">
+    <text x="175" y="24" font-size="13" font-weight="600" fill="var(--ink)">Bi-encoder (the vector search)</text>
+    <rect x="40" y="44" width="92" height="34" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="86" y="66" fill="var(--ink)">Query</text>
+    <rect x="218" y="44" width="92" height="34" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="264" y="66" fill="var(--ink)">Document</text>
+    <rect x="40" y="104" width="92" height="30" rx="3" fill="var(--card)" stroke="var(--rule)"/>
+    <text x="86" y="124" font-size="11" fill="var(--ink-soft)">vector</text>
+    <rect x="218" y="104" width="92" height="30" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="1.5"/>
+    <text x="264" y="124" font-size="11" fill="var(--ink)">vector</text>
+    <text x="175" y="162" font-size="11" fill="var(--ink)">compare the two vectors</text>
+    <text x="175" y="190" font-size="10.5" fill="var(--gen)">document vectors precomputed → scales to millions</text>
+    <text x="175" y="208" font-size="10.5" fill="var(--warn)">never sees the pair together → coarser</text>
+  </g>
+
+  <line x1="350" y1="14" x2="350" y2="216" stroke="var(--rule)" stroke-width="1"/>
+
+  <g font-family="Archivo, sans-serif" font-size="12" text-anchor="middle">
+    <text x="525" y="24" font-size="13" font-weight="600" fill="var(--ink)">Cross-encoder (the reranker)</text>
+    <rect x="430" y="44" width="190" height="34" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="525" y="66" fill="var(--ink)">Query + Document together</text>
+    <rect x="455" y="104" width="140" height="30" rx="3" fill="var(--card)" stroke="var(--gen)" stroke-width="1.5"/>
+    <text x="525" y="124" font-size="11" fill="var(--ink)">model reads both</text>
+    <rect x="478" y="146" width="94" height="28" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="1.5"/>
+    <text x="525" y="165" font-size="11" fill="var(--ink)">relevance score</text>
+    <text x="525" y="193" font-size="10.5" fill="var(--gen)">sees the interaction → far more accurate</text>
+    <text x="525" y="208" font-size="10.5" fill="var(--warn)">one model pass per pair → only on a shortlist</text>
+  </g>
+
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.3">
+    <line x1="86" y1="78" x2="86" y2="100" marker-end="url(#a4)"/>
+    <line x1="264" y1="78" x2="264" y2="100" marker-end="url(#a4)"/>
+    <line x1="525" y1="78" x2="525" y2="100" marker-end="url(#a4)"/>
+    <line x1="525" y1="134" x2="525" y2="142" marker-end="url(#a4)"/>
+  </g>
+</svg>
+<figcaption>Vector search can't afford to read the question and each document together — that's why it's fast and why it's approximate about relevance. The reranker can afford it, on fifty candidates.</figcaption>
+</figure>
+
+<p>So the pattern is: retrieve fifty cheaply, rerank to five accurately, pass those on. Two tuneable numbers — how wide you cast, how hard you cut — and reranking is typically the highest-leverage addition after hybrid search.</p>
+
+<h2>Query transformation</h2>
+
+<p>The user's question is often a bad search query. Four fixes, in rough order of how often you need them:</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Technique</th><th>What it does</th><th>When</th></tr></thead>
+<tbody>
+<tr><td>History rewriting</td><td>Turns "what about the second one?" into a standalone question using the conversation so far.</td><td>Mandatory for any chatbot. Follow-ups are unretrievable as written.</td></tr>
+<tr><td>Multi-query</td><td>Generates several phrasings, retrieves for each, merges.</td><td>Vague or short questions.</td></tr>
+<tr><td>Decomposition</td><td>Splits a compound question into sub-questions, retrieves per part.</td><td>Multi-hop: "how does X compare to Y?"</td></tr>
+<tr><td>HyDE</td><td>Has the model write a hypothetical answer, embeds <em>that</em>, and searches with it.</td><td>When questions and documents are written in very different registers.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="flag tip">
+  <strong>For your YouTube bot specifically</strong>
+  <p>History rewriting is the one that matters. In a transcript corpus, a follow-up like "why did he say that?" embeds to nothing useful — the pronouns carry all the meaning and none of it is in the text. Rewrite before retrieval, not after.</p>
+</div>
+
+<h3>Small-to-big retrieval</h3>
+
+<p>Match on small chunks for precision, then send the model the larger parent section those chunks came from. You get sharp retrieval and intact context at the same time. For transcripts this works unusually well: match on a tight window, expand to the surrounding two minutes.</p>
+
+<div class="part"><span class="partno">Part two</span><h2>Augmentation</h2></div>
+
+<p>No model runs here. It's string assembly — which is why it gets skipped in tutorials and why it's one of the better places to spend an afternoon.</p>
+
+<h2>The structure of the prompt</h2>
+
+<pre><code>[1] Role and grounding rule
+    "Answer using only the context below. If the context does not
+     contain the answer, say you don't know. Cite the chunk id
+     for each claim."
+
+[2] Context block, delimited, each chunk labelled
+    &lt;context&gt;
+    [id: t_0412 | 12:30–13:10] ...chunk text...
+    [id: t_0417 | 14:02–14:48] ...chunk text...
+    &lt;/context&gt;
+
+[3] Conversation history, if any (trimmed)
+
+[4] The question
+
+[5] Output instructions — format, length, what to do when unsure</code></pre>
+
+<h3>Things that actually change results</h3>
+
+<ul>
+  <li><strong>Order.</strong> Models attend best to the start and end of a long context and worst to the middle. With several chunks, put the strongest at the top and the second strongest at the bottom. Free to implement, measurably helps.</li>
+  <li><strong>Labelling.</strong> Give each chunk an id and its source metadata. Without ids the model cannot cite, and you cannot verify citations afterwards.</li>
+  <li><strong>Delimiters.</strong> Clear boundaries stop the model from reading two unrelated chunks as one continuous passage, which produces confident nonsense.</li>
+  <li><strong>Deduplication.</strong> Chunk overlap means adjacent chunks share text. Strip repeats before assembling or you pay tokens twice and bias the model toward the duplicated part.</li>
+  <li><strong>The refusal clause.</strong> Without an explicit instruction to say "I don't know", the model falls back on its own training knowledge the moment retrieval comes up short — and you cannot tell from the output that it did.</li>
+</ul>
+
+<h3>The token budget</h3>
+
+<p>A large context window is not permission to fill it. Cost scales with tokens on every call, latency scales with them, and accuracy degrades once the useful content is buried. Budget deliberately: reserve room for the system prompt, history and the answer, and give context whatever's left — not the other way round.</p>
+
+<div class="flag">
+  <strong>Retrieved text is untrusted input</strong>
+  <p>Anything that reached your index can reach your prompt. A document containing "ignore previous instructions and ..." is an injection vector, and in a YouTube bot that document is a transcript of whatever someone chose to say on camera. Treat retrieved content as data: keep it inside clear delimiters, state in the system prompt that context is reference material and never instructions, and never let retrieved text decide an action your app will take. This is a real attack surface, not a theoretical one.</p>
+</div>
+
+<div class="part"><span class="partno">Part three</span><h2>Generation</h2></div>
+
+<p>The smallest stage, and the one people over-tune. If retrieval and assembly are right, generation is mostly unremarkable.</p>
+
+<h3>Settings</h3>
+<ul>
+  <li><strong>Temperature low</strong> — near zero for grounded question answering. You want faithful reading, not creative writing.</li>
+  <li><strong>Model size</strong> — a smaller model with excellent context usually beats a larger one with poor context, at a fraction of the cost. Upgrade the retriever before upgrading the model.</li>
+  <li><strong>Streaming</strong> — doesn't improve answers, dramatically improves perceived latency when the retrieval stack has added half a second.</li>
+</ul>
+
+<h3>Citations</h3>
+
+<p>Ask for chunk ids inline, then map them back to sources in your code. Don't let the model write URLs or titles from memory — it will invent plausible ones. If citation accuracy matters, verify afterwards: check that each cited id was actually in the context you sent, and optionally that the claim is supported by that chunk.</p>
+
+<h3>How generation fails even with good context</h3>
+
+<ul>
+  <li><strong>Parametric leakage</strong> — answers from training knowledge instead of the context. Detectable by feeding deliberately wrong context and seeing whether the answer changes.</li>
+  <li><strong>Blending</strong> — mixes context with prior knowledge into one seamless paragraph, so part of it is grounded and part isn't, with no visible seam.</li>
+  <li><strong>Over-refusal</strong> — the answer is right there in the context and it still says it doesn't know. Usually an over-strict grounding instruction.</li>
+  <li><strong>Fabricated citations</strong> — cites ids that weren't in the context at all.</li>
+</ul>
+
+<div class="part"><span class="partno">Part four</span><h2>Triage: symptom to stage</h2></div>
+
+<p>The practical payoff of separating the stages. When an answer is bad, don't tune — find the stage first.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Symptom</th><th>Likely stage</th><th>Check this first</th></tr></thead>
+<tbody>
+<tr><td>Answer is wrong but fluent</td><td>Retrieval</td><td>Print the retrieved chunks. Was the right one there at all?</td></tr>
+<tr><td>Right chunk retrieved, still wrong answer</td><td>Generation or assembly</td><td>Chunk ordering, context truncation, a weak grounding instruction.</td></tr>
+<tr><td>Confident answer to an out-of-scope question</td><td>Retrieval + prompt</td><td>No score threshold, and no refusal clause.</td></tr>
+<tr><td>Misses exact terms, codes, names</td><td>Retrieval</td><td>Dense-only search. Add BM25 and fuse.</td></tr>
+<tr><td>Chunks are relevant but truncated mid-thought</td><td>Indexing</td><td>Chunk size and overlap, or move to small-to-big.</td></tr>
+<tr><td>Follow-up questions break</td><td>Retrieval</td><td>No history rewriting — pronouns are being embedded.</td></tr>
+<tr><td>Broad questions answered from one narrow chunk</td><td>Retrieval strategy</td><td>Top-k can't do whole-document questions. Needs MMR, summaries, or a hierarchy.</td></tr>
+<tr><td>All five chunks say the same thing</td><td>Retrieval</td><td>Overlap duplication, or missing MMR.</td></tr>
+<tr><td>Answer quality swings between runs</td><td>Generation</td><td>Temperature too high.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="part"><span class="partno">Part five</span><h2>What to measure at each stage</h2></div>
+
+<p>Stage-separated metrics are the only way the triage table above stops being guesswork. End-to-end scores tell you something broke; these tell you where.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Stage</th><th>Metric</th><th>Question it answers</th></tr></thead>
+<tbody>
+<tr><td>Retrieval</td><td>Recall@k</td><td>Is the answer-bearing chunk in the top k at all? The ceiling on everything downstream.</td></tr>
+<tr><td>Retrieval</td><td>Precision@k / context precision</td><td>How much of what you retrieved was actually useful? Low precision wastes tokens and buries the good chunk.</td></tr>
+<tr><td>Retrieval</td><td>MRR or NDCG</td><td>How high up is the good chunk? Matters because of position effects.</td></tr>
+<tr><td>Generation</td><td>Faithfulness / groundedness</td><td>Is every claim supported by the supplied context?</td></tr>
+<tr><td>Generation</td><td>Answer relevance</td><td>Does it address the question, or something adjacent that got retrieved?</td></tr>
+<tr><td>End to end</td><td>Refusal accuracy</td><td>Does it decline when it should, and only when it should? Needs deliberately unanswerable questions in the set.</td></tr>
+<tr><td>End to end</td><td>Citation correctness</td><td>Do cited ids exist in the context, and support the claim?</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>RAGAS and DeepEval implement most of these out of the box. Both lean on an LLM as judge for faithfulness and relevance, which means the judge itself needs checking against human labels before you trust its numbers — a judge that scores everything 0.9 tells you nothing.</p>
+
+<div class="flag tip">
+  <strong>The one habit worth forming now</strong>
+  <p>Keep a fixed set of questions with known answers and known source passages, and run it after every change. Thirty is enough to start. Without it, "I tweaked the chunk size and it feels better" is the entire quality process — and feelings don't catch regressions in the cases you didn't happen to try.</p>
+</div>
+
+<footer>
+  <p style="margin:0">That closes the loop across the four parts: concepts, loaders and splitters, vectors and stores, and the query path. What's left is operational — permissions, incremental re-indexing, caching, cost, and monitoring retrieval quality in production rather than in a notebook.</p>
+</footer>
+
+</div>
+</body>
+</html>

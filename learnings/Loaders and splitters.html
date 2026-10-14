@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loaders and splitters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9EDEE; --card:#F4F7F7; --ink:#16243C; --ink-soft:#4A5A72;
+    --rule:#BCC7CC; --mark:#FFD84D; --mark-wash:#FCEFC0; --gen:#0E6B66; --warn:#8C3A2B;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --sans:'Archivo',ui-sans-serif,system-ui,sans-serif;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+      --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101821; --card:#17212C; --ink:#E4EAEE; --ink-soft:#9DAEBC;
+    --rule:#33434F; --mark:#F2C73E; --mark-wash:#4A3B10; --gen:#4FBDB2; --warn:#E08E7C;
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:1.0625rem;line-height:1.66}
+  .wrap{max-width:46rem;margin:0 auto;padding:3.5rem 1.35rem 5rem}
+  h1,h2,h3,h4,.tag,th,.partno{font-family:var(--sans)}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.6rem;margin-bottom:2.4rem}
+  h1{font-size:clamp(2rem,7vw,3rem);line-height:1.04;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+  .src{font-size:.9rem;color:var(--ink-soft);font-style:italic;margin:0}
+  .lede{font-size:clamp(1.12rem,3.4vw,1.35rem);line-height:1.5;margin:0 0 2.2rem}
+  mark{background:var(--mark-wash);color:inherit;padding:.06em .18em;box-shadow:0 1px 0 var(--mark)}
+
+  .part{margin:3.4rem 0 1.4rem;border-top:2px solid var(--ink);padding-top:1rem}
+  .partno{font-size:.8rem;color:var(--ink-soft);font-weight:600;display:block;margin-bottom:.2rem}
+  .part h2{border:none;margin:0;padding:0;font-size:1.75rem;letter-spacing:-.015em}
+
+  h2{font-size:1.24rem;font-weight:700;letter-spacing:-.01em;margin:2.9rem 0 .85rem;padding-top:.95rem;border-top:1px solid var(--rule)}
+  h3{font-size:1.02rem;font-weight:600;margin:1.7rem 0 .4rem}
+  h4{font-size:.94rem;font-weight:600;margin:1.2rem 0 .3rem;color:var(--ink-soft)}
+  p{margin:0 0 1rem}
+  ul,ol{margin:0 0 1rem;padding-left:1.2rem}
+  li{margin-bottom:.45rem}
+
+  figure{margin:1.8rem 0;padding:1.1rem;background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow-x:auto}
+  figure svg{display:block;width:100%;height:auto;min-width:440px;max-width:100%}
+  figcaption{font-family:var(--sans);font-size:.8rem;color:var(--ink-soft);margin-top:.85rem;line-height:1.45}
+
+  .tbl{overflow-x:auto;margin:1.4rem 0}
+  table{border-collapse:collapse;width:100%;min-width:34rem;font-size:.93rem}
+  th,td{text-align:left;padding:.58rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-size:.8rem;font-weight:600;color:var(--ink-soft);border-bottom:1.5px solid var(--ink)}
+  td:first-child{font-family:var(--sans);font-weight:500}
+  td code{white-space:nowrap}
+
+  pre{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.81rem;line-height:1.55;
+      background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--mark);
+      border-radius:3px;padding:.95rem 1rem;overflow-x:auto;margin:1.2rem 0;white-space:pre}
+  code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.87em;
+       background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:.06em .3em}
+  pre code{background:none;border:none;padding:0;font-size:inherit}
+
+  .flag{border-left:3px solid var(--warn);padding:.15rem 0 .15rem 1rem;margin:1.4rem 0;color:var(--ink-soft)}
+  .flag.tip{border-left-color:var(--mark)}
+  .flag strong{color:var(--warn);font-family:var(--sans);font-size:.9rem;font-weight:600}
+  .flag.tip strong{color:var(--ink)}
+  .flag p{margin:.35rem 0 0}
+
+  .papers{list-style:none;padding:0;margin:1.2rem 0}
+  .papers li{padding:.85rem 0;border-bottom:1px solid var(--rule);margin:0}
+  .papers .t{font-family:var(--sans);font-weight:600;font-size:.98rem;display:block}
+  .papers .m{font-size:.85rem;color:var(--ink-soft);display:block;margin:.1rem 0 .3rem}
+  .papers .w{font-size:.95rem;display:block}
+  a{color:var(--gen);text-decoration-thickness:1px;text-underline-offset:2px}
+  a:focus-visible{outline:2px solid var(--mark);outline-offset:2px}
+
+  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:2px solid var(--ink);font-size:.95rem;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Loaders and splitters</h1>
+  <p class="src">Part two of the RAG notes: the indexing machinery. What each piece does, what's underneath it, when the built-in one is enough, and how to decide between chunking strategies instead of guessing.</p>
+</header>
+
+<p class="lede">These two steps decide what can ever be retrieved. <mark>Anything a loader drops or a splitter cuts badly is invisible to the rest of the system</mark> — no reranker or bigger model recovers it.</p>
+
+<figure>
+<svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Raw source files pass through a loader into Document objects with text and metadata, then through a splitter into chunks, which are then embedded.">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g color="var(--ink-soft)" stroke="currentColor" fill="none" stroke-width="1.5">
+    <line x1="132" y1="70" x2="174" y2="70" marker-end="url(#ar2)"/>
+    <line x1="314" y1="70" x2="356" y2="70" marker-end="url(#ar2)"/>
+    <line x1="496" y1="70" x2="538" y2="70" marker-end="url(#ar2)"/>
+    <line x1="660" y1="70" x2="702" y2="70" marker-end="url(#ar2)"/>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="13" text-anchor="middle">
+    <rect x="16" y="46" width="116" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="74" y="68" fill="var(--ink)">Raw source</text>
+    <text x="74" y="84" font-size="10.5" fill="var(--ink-soft)">pdf, html, db, api</text>
+
+    <rect x="186" y="46" width="128" height="48" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="250" y="75" fill="var(--ink)">Loader</text>
+
+    <rect x="368" y="46" width="128" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="432" y="68" fill="var(--ink)">Documents</text>
+    <text x="432" y="84" font-size="10.5" fill="var(--ink-soft)">text + metadata</text>
+
+    <rect x="550" y="46" width="110" height="48" rx="3" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2"/>
+    <text x="605" y="75" fill="var(--ink)">Splitter</text>
+
+    <rect x="714" y="46" width="32" height="48" rx="3" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="730" y="75" font-size="11" fill="var(--ink)">→</text>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">
+    <text x="250" y="120">anything → text</text>
+    <text x="605" y="120">long → short</text>
+    <text x="730" y="120">embed</text>
+  </g>
+</svg>
+<figcaption>The loader normalises every format into one shape. The splitter decides how much meaning sits in each retrievable unit.</figcaption>
+</figure>
+
+<div class="part"><span class="partno">Part one</span><h2>Document loaders</h2></div>
+
+<p>A loader's job is narrow: take a source in whatever form it lives, and return a list of <code>Document</code> objects. Each one is just text plus a metadata dictionary.</p>
+
+<pre><code>Document(
+    page_content = "Refunds are processed within 5–7 business days...",
+    metadata = {"source": "policy.pdf", "page": 12}
+)</code></pre>
+
+<p>That uniform output is the whole point. Everything downstream — splitter, embedder, vector store, retriever — only ever sees this shape, so adding a new source type never touches the rest of the pipeline.</p>
+
+<h2>The built-in ones and what's underneath</h2>
+
+<p>You noticed correctly that each loader wraps a different library. The loader itself is usually a thin adapter; the parsing quality comes from the library behind it.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Loader</th><th>Library behind it</th><th>Worth knowing</th></tr></thead>
+<tbody>
+<tr><td><code>TextLoader</code></td><td>Python built-ins</td><td>Trivial. Encoding is the only thing that bites — pass <code>autodetect_encoding</code> for messy files.</td></tr>
+<tr><td><code>PyPDFLoader</code></td><td><code>pypdf</code></td><td>Fast, one Document per page. Mangles multi-column layouts and drops tables.</td></tr>
+<tr><td><code>PDFPlumberLoader</code></td><td><code>pdfplumber</code></td><td>Much better at tables and word positions. Noticeably slower.</td></tr>
+<tr><td><code>PyMuPDFLoader</code></td><td><code>PyMuPDF</code> (fitz)</td><td>Fast and accurate — usually the best default for PDFs. Check the licence for commercial use.</td></tr>
+<tr><td><code>UnstructuredPDFLoader</code></td><td><code>unstructured</code></td><td>Layout-aware: labels titles, tables, lists. Heavy dependency chain, slow, but the structure is worth it for messy documents.</td></tr>
+<tr><td><code>Docx2txtLoader</code></td><td><code>docx2txt</code></td><td>Plain text only. Use <code>UnstructuredWordDocumentLoader</code> if you need headings preserved.</td></tr>
+<tr><td><code>WebBaseLoader</code></td><td><code>requests</code> + <code>BeautifulSoup</code></td><td>Grabs everything including nav and footers. Pass a soup filter or you'll index the site chrome on every page.</td></tr>
+<tr><td><code>CSVLoader</code></td><td><code>csv</code> module</td><td>One Document per row by default. Good for record-like data, bad if rows only make sense together.</td></tr>
+<tr><td><code>JSONLoader</code></td><td><code>jq</code></td><td>You supply a jq path to select fields. Powerful, slightly fiddly syntax.</td></tr>
+<tr><td><code>DirectoryLoader</code></td><td>dispatches by glob</td><td>Wraps other loaders across a folder. Turn on multithreading for large trees.</td></tr>
+<tr><td>Integrations</td><td>vendor SDKs</td><td>Notion, Confluence, Slack, S3, GitHub, SQL, Google Drive — a hundred-plus, all returning the same Document shape.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="flag">
+  <strong>PDFs are where projects stall</strong>
+  <p>A PDF has no notion of paragraphs or reading order — only glyphs at coordinates. Every extractor is guessing. Before blaming retrieval, print the extracted text of a few pages and read it. Scrambled two-column text or vanished tables explain most "the RAG doesn't work" reports. Scanned PDFs have no text layer at all and need OCR (Tesseract, or a vision model) before anything else works.</p>
+</div>
+
+<h2>Built-in or custom?</h2>
+
+<p>In practice, both. Start with the built-in and write a custom one when you hit a specific wall:</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Situation</th><th>Approach</th></tr></thead>
+<tbody>
+<tr><td>Standard format, clean file</td><td>Built-in loader. No reason to write code.</td></tr>
+<tr><td>Source has no loader</td><td>Custom — internal API, proprietary format, a database join.</td></tr>
+<tr><td>Need richer metadata</td><td>Custom. Section titles, doc owner, last-updated date, access level — none of it comes free.</td></tr>
+<tr><td>Boilerplate pollutes chunks</td><td>Custom, or subclass to strip headers, footers, nav, legal blocks before returning.</td></tr>
+<tr><td>Structure must survive</td><td>Custom. Emit one Document per section rather than per page, so chunks align with meaning.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>A custom loader is small — subclass the base and yield Documents:</p>
+
+<pre><code>from langchain_core.document_loaders import BaseLoader
+from langchain_core.documents import Document
+
+class TicketLoader(BaseLoader):
+    def __init__(self, client, project):
+        self.client, self.project = client, project
+
+    def lazy_load(self):
+        for t in self.client.fetch(self.project):
+            yield Document(
+                page_content=f"{t.title}\n\n{t.description}\n\n{t.resolution}",
+                metadata={
+                    "source": t.url,
+                    "ticket_id": t.id,
+                    "status": t.status,
+                    "updated": t.updated_at,
+                },
+            )</code></pre>
+
+<div class="flag tip">
+  <strong>Metadata is the cheapest win in the pipeline</strong>
+  <p>It costs nothing at load time and pays off three ways: filtered retrieval ("only current-version docs"), citations in the answer, and targeted deletion when a document is withdrawn. Retrofitting it later means re-indexing everything.</p>
+</div>
+
+<div class="part"><span class="partno">Part two</span><h2>Text splitters</h2></div>
+
+<p>Splitting exists because of a squeeze from both sides. Chunks that are too large dilute the embedding — one vector has to represent several topics, so it matches nothing sharply. Chunks that are too small carry no context, so the retrieved fragment is true but useless.</p>
+
+<figure>
+<svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A trade-off scale: small chunks give precise matching but lost context and fragmented answers; large chunks give full context but diluted embeddings and wasted tokens. The workable band sits in the middle.">
+  <line x1="60" y1="120" x2="640" y2="120" stroke="var(--rule)" stroke-width="2"/>
+  <rect x="250" y="104" width="200" height="32" fill="var(--mark-wash)" stroke="var(--mark)" stroke-width="2" rx="2"/>
+  <g font-family="Archivo, sans-serif" font-size="12" fill="var(--ink)" text-anchor="middle">
+    <text x="350" y="125">workable band</text>
+    <text x="90" y="145" fill="var(--ink-soft)">small</text>
+    <text x="610" y="145" fill="var(--ink-soft)">large</text>
+  </g>
+  <g font-family="Archivo, sans-serif" font-size="11.5" fill="var(--ink)">
+    <text x="60" y="48">Sharp matching</text>
+    <text x="60" y="68" fill="var(--warn)">— context lost, answers fragmented</text>
+    <text x="640" y="48" text-anchor="end">Full context</text>
+    <text x="640" y="68" text-anchor="end" fill="var(--warn)">— embedding diluted, tokens wasted</text>
+  </g>
+  <g stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3">
+    <line x1="80" y1="76" x2="80" y2="104"/>
+    <line x1="620" y1="76" x2="620" y2="104"/>
+  </g>
+  <text x="350" y="182" font-family="Archivo, sans-serif" font-size="11" fill="var(--ink-soft)" text-anchor="middle">where the band sits depends on your documents and your questions — it is measured, not looked up</text>
+</svg>
+<figcaption>There is no universal chunk size. There is a band you find by testing, and the shape of your documents moves it.</figcaption>
+</figure>
+
+<h2>The strategies, in order of how much machinery they need</h2>
+
+<h3>1. Fixed-size</h3>
+<p>Cut every N characters or tokens. Structure-blind, so it happily slices mid-sentence, but it's fast, predictable and a legitimate baseline. Research keeps finding it harder to beat than people expect.</p>
+
+<h3>2. Recursive character splitting</h3>
+<p>The default workhorse, and worth understanding properly rather than treating as a black box. It holds an ordered list of separators — by default <code>["\n\n", "\n", " ", ""]</code> — and works down it:</p>
+<ol>
+  <li>Try splitting on paragraph breaks. If every resulting piece fits the size limit, done.</li>
+  <li>Any piece still too large gets split again on single newlines.</li>
+  <li>Still too large — split on spaces, then on raw characters as the last resort.</li>
+</ol>
+<p>The effect is that it breaks at the largest natural boundary that satisfies the size constraint, and only resorts to brutal cuts where the text gives it nothing to work with. That's why it's the sensible default for prose.</p>
+
+<h3>3. Token-based</h3>
+<p>Same idea, but counting tokens via <code>tiktoken</code> instead of characters. Matters because your size limits are really token limits — character counts drift badly across languages, code, and text with many numbers.</p>
+
+<h3>4. Structure-aware</h3>
+<p>Split along the document's own skeleton instead of guessing at it: Markdown headers, HTML tags, or language-aware separators for code (splitting at function and class boundaries rather than mid-body). When the structure exists, using it beats inferring it — and header text can be copied into each chunk's metadata, so a chunk knows which section it came from.</p>
+
+<h3>5. Semantic</h3>
+<p>Exactly as described in the tutorial: split into sentences, embed each one, walk through comparing adjacent similarity, and cut where similarity drops — a drop implies the topic changed. Intuitive and appealing.</p>
+<p>The evidence is more mixed than the intuition suggests. Chroma's chunking study found strategy choice matters a lot (up to around nine points of recall between strategies), but that heuristic splitters like recursive remain strong baselines. A NAACL 2025 paper tested semantic chunking across document retrieval, evidence retrieval and answer generation and concluded the gains over simple fixed-size chunking were inconsistent and didn't justify the compute. So: reasonable to try, not something to adopt on faith.</p>
+
+<h3>6. LLM-based</h3>
+<p>Ask a model where the natural boundaries are. Best quality in some evaluations, and the most expensive by a wide margin — every document costs a generation pass. Viable for small, high-value, stable corpora; rarely viable at scale.</p>
+
+<h3>Overlap, across all of them</h3>
+<p>Repeat some tail of each chunk at the start of the next, so a sentence spanning a boundary survives in at least one chunk intact. Ten to twenty percent of chunk size is the usual range. It costs storage and adds redundancy in results, so more is not better.</p>
+
+<h2>How to decide</h2>
+
+<p>The honest answer is that you measure. But you can narrow the search space a lot before measuring anything:</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>What you're indexing</th><th>Start with</th><th>Because</th></tr></thead>
+<tbody>
+<tr><td>Prose — articles, reports, policies</td><td>Recursive, 500–800 tokens, 10–15% overlap</td><td>Paragraph boundaries are meaningful and the separator cascade respects them.</td></tr>
+<tr><td>Markdown, wikis, docs sites</td><td>Header-based, then recursive inside long sections</td><td>The heading hierarchy is a better outline than anything you'd infer.</td></tr>
+<tr><td>Code</td><td>Language-aware splitter</td><td>A function cut in half retrieves as nonsense.</td></tr>
+<tr><td>FAQs, tickets, product records</td><td>One chunk per record, no splitting</td><td>The record is already the unit of meaning. Don't fight it.</td></tr>
+<tr><td>Tables and spreadsheets</td><td>Row groups plus the header row repeated</td><td>A detached row loses its column names and means nothing.</td></tr>
+<tr><td>Transcripts, chat logs</td><td>Time or speaker windows with generous overlap</td><td>Topics drift gradually and references point backwards.</td></tr>
+<tr><td>Legal, contracts</td><td>Clause or section boundaries</td><td>Clauses are self-contained by design and get cited individually.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The procedure</h3>
+<ol>
+  <li><strong>Build a small eval set first.</strong> Thirty to fifty real questions, each labelled with the passage that answers it. Everything after this is guesswork without it.</li>
+  <li><strong>Measure retrieval alone.</strong> Recall@k — does the right passage come back in the top k? Keep the generator out of it, or you can't tell which stage failed.</li>
+  <li><strong>Sweep chunk size and overlap</strong> on the simplest splitter that fits your document type. This is usually the biggest single lever.</li>
+  <li><strong>Only then try fancier strategies,</strong> and only if the simple one is demonstrably losing. Compare against the same eval set and count the compute cost.</li>
+  <li><strong>Re-check when the corpus changes.</strong> A setting tuned on clean docs degrades when someone dumps in scanned PDFs.</li>
+</ol>
+
+<div class="flag tip">
+  <strong>The order that saves time</strong>
+  <p>Fix extraction quality first, then chunk size, then retrieval settings (k, hybrid search, reranking), then chunking strategy. Most people start at the last one because it's the most interesting, and spend a week tuning a semantic splitter on text the loader mangled.</p>
+</div>
+
+<h2>Beyond plain chunking</h2>
+
+<p>Once the basics are measured, these are the techniques that show up when a plain split isn't enough. Each one addresses the same root problem: a chunk pulled out of its document has lost the context that made it meaningful.</p>
+
+<ul>
+  <li><strong>Contextual retrieval</strong> — prepend a short model-generated blurb to each chunk explaining where it sits in the document, then embed that. Attacks the context-loss problem head-on at the cost of one generation pass per chunk.</li>
+  <li><strong>Late chunking</strong> — embed the whole long document first, then pool per chunk afterwards, so every chunk vector carries surrounding context. Needs a long-context embedding model, but requires no extra training.</li>
+  <li><strong>Small-to-big / parent document</strong> — retrieve on small precise chunks, then hand the model the larger parent section they came from. Cheap and often the single best upgrade.</li>
+  <li><strong>Hierarchical summarisation</strong> — build a tree of recursive summaries above the raw chunks so broad questions can be answered from a higher level. RAPTOR is the reference implementation.</li>
+  <li><strong>Hybrid search plus reranking</strong> — combine dense vectors with keyword search, then rerank with a cross-encoder. Frequently beats any amount of chunking tuning, especially for exact terms, IDs and error codes.</li>
+</ul>
+
+<div class="part"><span class="partno">Part three</span><h2>Papers and reports</h2></div>
+
+<p>Ordered so the chunking-specific ones come first, since that's the open question here.</p>
+
+<ul class="papers">
+  <li>
+    <span class="t">Evaluating Chunking Strategies for Retrieval</span>
+    <span class="m">Smith &amp; Troynikov, Chroma technical report, 2024</span>
+    <span class="w">Evaluates popular strategies at token-level precision and recall. Finds strategy choice materially affects retrieval, while heuristic splitters like recursive stay competitive. Comes with a runnable evaluation package — the most directly useful item on this list. <a href="https://research.trychroma.com/evaluating-chunking">research.trychroma.com/evaluating-chunking</a></span>
+  </li>
+  <li>
+    <span class="t">Is Semantic Chunking Worth the Computational Cost?</span>
+    <span class="m">Qu, Tu &amp; Bao — Findings of NAACL 2025 (arXiv 2410.13070)</span>
+    <span class="w">Tests semantic chunking against fixed-size across three retrieval tasks and finds the gains inconsistent and not worth the compute. The direct counterweight to the intuition that semantic splitting must be better. <a href="https://arxiv.org/abs/2410.13070">arxiv.org/abs/2410.13070</a></span>
+  </li>
+  <li>
+    <span class="t">Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models</span>
+    <span class="m">Günther et al., Jina AI, 2024 (arXiv 2409.04701)</span>
+    <span class="w">Flips the order — embed the full text, chunk afterwards at the pooling step — so each chunk vector retains document context. No retraining needed. <a href="https://arxiv.org/abs/2409.04701">arxiv.org/abs/2409.04701</a></span>
+  </li>
+  <li>
+    <span class="t">Searching for Best Practices in Retrieval-Augmented Generation</span>
+    <span class="m">Wang et al., EMNLP 2024 (arXiv 2407.01219)</span>
+    <span class="w">Sweeps the whole pipeline — chunking, embeddings, retrieval, reranking, generation — looking for combinations that balance quality against cost. Useful as a map of which knobs actually move results. <a href="https://arxiv.org/abs/2407.01219">arxiv.org/abs/2407.01219</a></span>
+  </li>
+  <li>
+    <span class="t">Introducing Contextual Retrieval</span>
+    <span class="m">Anthropic engineering writeup, 2024</span>
+    <span class="w">The contextual-embeddings technique in practical form, with reported failure-rate reductions when combined with hybrid search and reranking. <a href="https://www.anthropic.com/news/contextual-retrieval">anthropic.com/news/contextual-retrieval</a></span>
+  </li>
+  <li>
+    <span class="t">RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</span>
+    <span class="m">Sarthi et al., ICLR 2024 (arXiv 2401.18059)</span>
+    <span class="w">Builds a summary tree over the corpus so retrieval can happen at several levels of abstraction. The answer to "my questions need the whole document, not a chunk". <a href="https://arxiv.org/abs/2401.18059">arxiv.org/abs/2401.18059</a></span>
+  </li>
+  <li>
+    <span class="t">Lost in the Middle: How Language Models Use Long Contexts</span>
+    <span class="m">Liu et al., TACL 2024 (arXiv 2307.03172)</span>
+    <span class="w">Models attend well to the start and end of a long context and poorly to the middle. Explains why retrieving fewer, better chunks beats retrieving more, and why the order you paste them in matters. <a href="https://arxiv.org/abs/2307.03172">arxiv.org/abs/2307.03172</a></span>
+  </li>
+  <li>
+    <span class="t">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</span>
+    <span class="m">Lewis et al., NeurIPS 2020 (arXiv 2005.11401)</span>
+    <span class="w">The original paper that named the pattern. Worth reading once for the framing, though the architecture it describes is not what people build today. <a href="https://arxiv.org/abs/2005.11401">arxiv.org/abs/2005.11401</a></span>
+  </li>
+</ul>
+
+<footer>
+  <p style="margin:0">If you only act on one thing here: build the labelled question set before touching splitter settings. Every decision downstream becomes measurable, and most of them stop being arguments.</p>
+</footer>
+
+</div>
+</body>
+</html>
